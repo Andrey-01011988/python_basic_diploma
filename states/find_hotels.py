@@ -6,8 +6,13 @@ class FindHotel(StatesGroup):
     select_city = State()  # пользователь выбирает город
     check_in_date = State()  # вводит дату заезда
     check_out_date = State()  # вводит дату выезда
+    adult_guests = State()  # вводит количество взрослых гостей
+    children_number = State()  # вводит количество детей (если необходимо)
+    children_age = State()  # вводит возраст детей (если необходимо)
+    need_photos = State()  # определяет нуж ны ли фото
     photo_number = State()  # вводит количество фотографий отеля
-    hotels_num = State()  # вводит количество отелей в ответе
+    show_hotels = State()  # вводит количество отелей в ответе
     price_min = State()  # минимальная цена для поиска
     price_max = State()  # максимальная цена для поиска
-    distance = State()  # расстояние от центра города
+    distance_min = State()  # минимальное расстояние от центра города
+    distance_max = State()  # максимальное расстояние от центра города

@@ -26,14 +26,13 @@ def check_in_date(call: CallbackQuery) -> None:
 
     elif result:
         logger.info(f'Сохраняется дата заезда {call.from_user.id}')
-        answer = {}
+        check_in = {}
         year, month, day = str(result).split('-')
-        answer['year'] = year
-        answer['month'] = month
-        answer['day'] = day
+        check_in['year'] = int(year)
+        check_in['month'] = int(month)
+        check_in['day'] = int(day)
         with bot.retrieve_data(call.from_user.id) as data:
-            data['check_in'] = answer
-            answer.clear()
+            data['check_in'] = check_in
 
         bot.send_message(call.from_user.id, f'Дата заезда: {str(result)}')
         bot.set_state(call.message.chat.id, FindHotel.check_out_date)
@@ -44,7 +43,7 @@ def check_in_date(call: CallbackQuery) -> None:
 
 
 @bot.callback_query_handler(func=None, state=FindHotel.check_out_date)
-def check_in_date(call: CallbackQuery) -> None:
+def check_out_date(call: CallbackQuery) -> None:
     """
     Запрашивает у пользователя дату выезда и сохраняет ёё
 
@@ -60,15 +59,16 @@ def check_in_date(call: CallbackQuery) -> None:
                               reply_markup=keyboard)
     elif result:
         logger.info(f'Сохраняется дата выезда {call.from_user.id}')
-        answer = {}
+        check_out = {}
         year, month, day = str(result).split('-')
-        answer['year'] = year
-        answer['month'] = month
-        answer['day'] = day
+        check_out['year'] = int(year)
+        check_out['month'] = int(month)
+        check_out['day'] = int(day)
         with bot.retrieve_data(call.from_user.id) as data:
-            data['check_out'] = answer
-            answer.clear()
+            data['check_out'] = check_out
 
         bot.send_message(call.from_user.id, f'Дата выезда: {str(result)}')
         bot.answer_callback_query(call.id)
         bot.delete_message(call.message.chat.id, call.message.message_id)
+        bot.send_message(call.from_user.id, 'Сколько взрослых поедет? Введите число')
+        bot.set_state(call.from_user.id, FindHotel.adult_guests)

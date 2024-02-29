@@ -13,9 +13,6 @@ from states.find_hotels import FindHotel
 from loader import bot
 
 
-cities = []
-
-
 def check_command(command: str) -> str:
     """
       Проверка команды и назначение параметра сортировки
@@ -25,8 +22,10 @@ def check_command(command: str) -> str:
     """
     if command == '/bestdeal':
         return 'DISTANCE'
-    elif command == '/lowprice' or command == '/highprice':
+    elif command == '/lowprice':
         return 'PRICE_LOW_TO_HIGH'
+    elif command == '/highprice':
+        return 'PRICE_RELEVANT '
 
 
 def get_cities_list(response_sr: List) -> List:
@@ -80,16 +79,16 @@ def select_city(message: Message) -> None:
     :return: None
     """
 
-    global cities
-
     response = get_city('GET', url=url, headers=headers_get, city=message.text, timeout=10)
     logger.info(f'Создан запрос пользователем {message.from_user.id} на поиск городов {message.text}')
     if response.status_code == requests.codes.ok:
         answer = response.json()
 
-        cities.extend(get_cities_list(answer['sr']))
+        cities = (get_cities_list(answer['sr']))
         if len(cities) == 0:
             bot. send_message(message.from_user.id, 'По вашему запросу ни чего не найдено, введите другой запрос')
         else:
+            with bot.retrieve_data(message.from_user.id, message.chat.id) as data:
+                data['cities'] = cities
             bot.send_message(message.from_user.id, 'Уточните расположение',
                              reply_markup=cities_buttons(cities))
