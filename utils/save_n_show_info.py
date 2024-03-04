@@ -1,13 +1,20 @@
 # import json
+from datetime import datetime
 from random import randint
 from typing import Dict
 
+from peewee import IntegrityError
 from loguru import logger
 from telebot.types import Message, InputMediaPhoto
 
+from database.common.db_models import db, Queries, Users, QueryResult
+from database.core import crud
 from loader import bot
 from site_API.site_core import url, headers_post, default_hotel_info
 from site_API.site_handlers.site_api_handlers import post_hotels, post_hotel_info
+
+db_write = crud.create()  # Создание и запись в таблицу данных
+db_read = crud.retrieve()  # Чтение из б/д
 
 
 def save_n_show_info(local_payload: Dict, message: Message) -> None:
@@ -24,6 +31,7 @@ def save_n_show_info(local_payload: Dict, message: Message) -> None:
     images_to_user = []
     media = []
     hotels_count = 0
+    cur_query_id = 0
 
     response = post_hotels('POST', url=url, headers=headers_post, payload=local_payload,
                            timeout=100)
@@ -38,7 +46,27 @@ def save_n_show_info(local_payload: Dict, message: Message) -> None:
 
         with bot.retrieve_data(message.from_user.id, message.chat.id) as data:
             # Можно добавить список информации об отеле и другие списки
-            pass
+            data['photos_db'] = ''
+
+        data['query_text'] += f'Запрос составлен: {datetime.now().replace(microsecond=0)}\n'
+
+        req_info = [
+            {
+                'user': message.from_user.id,
+                'query_date': datetime.now().replace(microsecond=0),
+                'query_text': data['query_text']
+            }
+        ]
+        db_write(db, Queries, req_info)
+        logger.info('Сохранение в б/д информации о запросе успешно!')
+
+        try:
+            cur_user = Users.get(Users.user_id == message.from_user.id)
+            cur_query_lst = cur_user.queries.order_by(-Queries.query_date, -Queries.query_id).limit(1)
+            cur_query_id = cur_query_lst[0].query_id
+            logger.info('Извлечение ID запроса успешно')
+        except IntegrityError as e:
+            logger.error(f'Произошла ошибка {e}')
 
         while hotels_count < data['hotels_number']:
             try:
@@ -61,8 +89,6 @@ def save_n_show_info(local_payload: Dict, message: Message) -> None:
                 try:
                     hotel_name = hotel_data['data']['propertyInfo']['summary']['name']
                     address = hotel_data['data']['propertyInfo']['summary']['location']['address']['addressLine']
-                    # price_per_night = \
-                    #     answer['data']['propertySearch']['properties'][hotels_count]['price']['lead']['formatted']
                     price_int = \
                         answer['data']['propertySearch']['properties'][hotels_count]['price']['lead']['amount']
                     distance = \
@@ -110,6 +136,21 @@ def save_n_show_info(local_payload: Dict, message: Message) -> None:
                       f'Адрес: {query_answer["address"]}\n' \
                       f'Цена за ночь: ${str(round(query_answer["price_sort"]))}\n' \
                       f'Расстояние от центра (в милях):{str(query_answer["distance"])}'
+
+                try:
+                    if cur_query_id == 0:
+                        logger.info('Не записался ID запроса')
+                    query_res = [
+                        {
+                            'query': cur_query_id,
+                            'result_text': msg
+                        }
+                    ]
+                    db_write(db, QueryResult, query_res)
+                    logger.info('Сохранение в б/д информации о результате запроса успешно!')
+                except IntegrityError as e:
+                    logger.error(f'Ошибка {e}')
+
                 bot.send_message(message.from_user.id, msg)
                 logger.info('Сообщение отправлено')
 
@@ -122,11 +163,27 @@ def save_n_show_info(local_payload: Dict, message: Message) -> None:
                       f'Расстояние от центра (в милях):{str(answer["distance"])}'
                 for image_link in range(data['photo_num']):
                     images_to_user.append(answer['photos'][randint(0, len(answer['photos']) - 1)])
+
                 for index, link in enumerate(images_to_user):
                     if index == 0:
                         media.append(InputMediaPhoto(media=link, caption=msg))
                     else:
                         media.append(InputMediaPhoto(media=link))
+                    data['photos_db'] += link + ';'
+
+                if cur_query_id < 0:
+                    logger.info('Не записался ID запроса')
+                query_res = [
+                    {
+                        'query': cur_query_id,
+                        'result_text': msg,
+                        'photos': data['photos_db']
+                    }
+                ]
+                db_write(db, QueryResult, query_res)
+                logger.info('Сохранение в б/д информации о результате запроса успешно!')
+                data['photos_db'] = ''
+                logger.info('Очищена строка ссылок на фотографии')
 
                 bot.send_media_group(message.chat.id, media)
                 logger.info('Сообщение отправлено')

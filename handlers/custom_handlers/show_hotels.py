@@ -1,4 +1,4 @@
-# import json
+import json
 # from pprint import pprint
 
 # import requests
@@ -28,8 +28,10 @@ def hotels_number(message: Message) -> None:
         with bot.retrieve_data(message.from_user.id, message.chat.id) as data:
             data['hotels_number'] = int(message.text)
             logger.info('Сохранил количество отелей')
-        # with open(r'D:\SkillboxPycharm\python_basic_diploma\some_tests\data.json', 'w', encoding='utf-8') as file_w:
-        #     json.dump(data, file_w, sort_keys=True, indent=4, ensure_ascii=False)
+            data['query_text'] += f'Количество отелей: {message.text}\n'
+            logger.info('Сохранил количество отелей для записи в б/д')
+        with open(r'D:\SkillboxPycharm\python_basic_diploma\some_tests\data.json', 'w', encoding='utf-8') as file_w:
+            json.dump(data, file_w, indent=4, ensure_ascii=False)
         logger.info('Сохранил информацию от пользователя в файл data')
         bot.send_message(message.from_user.id, 'Жду ответа от сервера')
     else:
@@ -66,3 +68,4 @@ def hotels_number(message: Message) -> None:
     else:
         bot.send_message(message.from_user.id, 'Не та команда')
         return
+    bot.delete_state(message.from_user.id)

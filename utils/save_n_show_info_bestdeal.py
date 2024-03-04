@@ -1,14 +1,22 @@
 # import json
+from datetime import datetime
 from random import randint
 from typing import Dict
 
 from loguru import logger
+from peewee import IntegrityError
 from telebot.types import Message, InputMediaPhoto
 
+from database.common.db_models import db, Queries, Users, QueryResult
+from database.core import crud
 from loader import bot
 from site_API.site_core import url, headers_post, default_hotel_info
 from site_API.site_handlers.site_api_handlers import post_hotels, post_hotel_info
 from states.find_hotels import FindHotel
+
+
+db_write = crud.create()  # Создание и запись в таблицу данных
+db_read = crud.retrieve()  # Чтение из б/д
 
 
 def save_n_show_info_bestdeal(local_payload: Dict, message: Message) -> None:
@@ -25,6 +33,7 @@ def save_n_show_info_bestdeal(local_payload: Dict, message: Message) -> None:
     images_to_user = []  # список ссылок на фото отеля для пользователя
     media = []  # список изображений для пользователя с подписью
     hotels_count = 0  # счетчик отелей выводимых пользователю
+    cur_query_id = 0  # Проверка на извлечение id запроса
 
     response = post_hotels('POST', url=url, headers=headers_post, payload=local_payload,
                            timeout=100)
@@ -32,6 +41,7 @@ def save_n_show_info_bestdeal(local_payload: Dict, message: Message) -> None:
     with bot.retrieve_data(message.from_user.id, message.chat.id) as data:
         data['hotels_bestdeal'] = []
         data['show_info'] = []
+        data['photos_db'] = ''
 
     logger.info(f'Создан запрос пользователем {message.from_user.id} на поиск отелей {message.text} штук')
     if response.status_code == 200:
@@ -40,6 +50,28 @@ def save_n_show_info_bestdeal(local_payload: Dict, message: Message) -> None:
         # with open(file_address, 'w', encoding='utf-8') as file_w:
         #     json.dump(answer, file_w, indent=4, ensure_ascii=False)
         # logger.info('Сохранил в файл данные от сервера')
+
+        data['query_text'] += f'Минимальная дистанция до центра: {data["distance"]["min"]}\n'
+        data['query_text'] += f'Максимальная дистанция до центра: {data["distance"]["max"]}\n'
+        data['query_text'] += f'Запрос составлен: {datetime.now().replace(microsecond=0)}\n'
+
+        req_info = [
+            {
+                'user': message.from_user.id,
+                'query_date': datetime.now().replace(microsecond=0),
+                'query_text': data['query_text']
+            }
+        ]
+        db_write(db, Queries, req_info)
+        logger.info('Сохранение в б/д информации о запросе успешно!')
+
+        try:
+            cur_user = Users.get(Users.user_id == message.from_user.id)
+            cur_query_lst = cur_user.queries.order_by(-Queries.query_date, -Queries.query_id).limit(1)
+            cur_query_id = cur_query_lst[0].query_id
+            logger.info('Извлечение ID запроса успешно')
+        except IntegrityError as e:
+            logger.error(f'Произошла ошибка {e}')
 
         logger.info('Сортировка по команде /bestdeal')
         for value in answer['data']['propertySearch']['properties']:
@@ -51,7 +83,6 @@ def save_n_show_info_bestdeal(local_payload: Dict, message: Message) -> None:
                 )
             )
 
-        # Спорно!!!
         del answer
 
         logger.info('Сортировка по расстоянию от центра введенного пользователем')
@@ -64,10 +95,11 @@ def save_n_show_info_bestdeal(local_payload: Dict, message: Message) -> None:
             logger.error('Проверка не пройдена, пользователь возвращен на шаг ввода дистанции')
             bot.send_message(message.from_user.id,
                              'По таким параметрам нет подходящих отелей, попробуйте изменить дистанцию')
+            bot.send_message(message.from_user.id, 'Введите минимальную дистанцию от центра (в милях)')
             bot.set_state(message.from_user.id, FindHotel.distance_min)
             return
 
-        logger.info('Сортировка по порядку возрастания')
+        logger.info('Сортировка по порядку возрастания дистанции')
         data['hotels_bestdeal'] = sorted(data['hotels_bestdeal'], key=lambda x: x['distance_from_center'])
 
         while hotels_count < data['hotels_number']:
@@ -95,7 +127,7 @@ def save_n_show_info_bestdeal(local_payload: Dict, message: Message) -> None:
                     price_int = data['hotels_bestdeal'][hotels_count]['price_int']
                     distance = data['hotels_bestdeal'][hotels_count]['distance_from_center']
                     photos = [
-                        image['image']['url']
+                        image['image']['url'] if image['__typename'] == 'PropertyImage' else image['image']['url']
                         for image in hotel_data['data']['propertyInfo']['propertyGallery']['images']
                     ]
                 except Exception as e:
@@ -128,6 +160,21 @@ def save_n_show_info_bestdeal(local_payload: Dict, message: Message) -> None:
                       f'Адрес: {query_answer["address"]}\n' \
                       f'Цена за ночь: ${str(round(query_answer["price_sort"]))}\n' \
                       f'Расстояние от центра (в милях):{str(query_answer["distance"])}'
+
+                try:
+                    if cur_query_id == 0:
+                        logger.info('Не записался ID запроса')
+                    query_res = [
+                        {
+                            'query': cur_query_id,
+                            'result_text': msg
+                        }
+                    ]
+                    db_write(db, QueryResult, query_res)
+                    logger.info('Сохранение в б/д информации о результате запроса успешно!')
+                except IntegrityError as e:
+                    logger.error(f'Ошибка {e}')
+
                 bot.send_message(message.from_user.id, msg)
                 logger.info('Сообщение отправлено')
 
@@ -144,6 +191,21 @@ def save_n_show_info_bestdeal(local_payload: Dict, message: Message) -> None:
                         media.append(InputMediaPhoto(media=link, caption=msg))
                     else:
                         media.append(InputMediaPhoto(media=link))
+                    data['photos_db'] += link + ';'
+
+                if cur_query_id < 0:
+                    logger.error('Не записался ID запроса')
+                query_res = [
+                    {
+                        'query': cur_query_id,
+                        'result_text': msg,
+                        'photos': data['photos_db']
+                    }
+                ]
+                db_write(db, QueryResult, query_res)
+                logger.info('Сохранение в б/д информации о результате запроса успешно!')
+                data['photos_db'] = ''
+                logger.info('Очищена строка ссылок на фотографии')
 
                 bot.send_media_group(message.chat.id, media)
                 logger.info('Сообщение отправлено')
@@ -153,3 +215,4 @@ def save_n_show_info_bestdeal(local_payload: Dict, message: Message) -> None:
     else:
         logger.info(f'Код ответа {response.status_code}')
         bot.send_message(message.from_user.id, 'Что-то пошло не так')
+    bot.delete_state(message.from_user.id)

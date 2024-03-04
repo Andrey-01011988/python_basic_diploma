@@ -138,4 +138,6 @@ dmypy.json
 # Cython debug symbols
 cython_debug/
 
-!/requirements.txt
+users_history.db
+
+/tests_db.py

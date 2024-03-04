@@ -16,6 +16,8 @@ def get_photo_num(message: Message) -> None:
     if message.text.isdigit() and 0 < int(message.text) < 11:
         with bot.retrieve_data(message.from_user.id) as data:
             data['photo_num'] = int(message.text)
+            data['query_text'] += f'Количество фотографий: {message.text}\n'
+            logger.info('Сохранил количество фото для записи в б/д')
         logger.info('Сохранено количество фотографий')
         if data['command'] == '/bestdeal':
             bot.send_message(message.from_user.id, 'Введите минимальную цену за ночь для поиска отелей')

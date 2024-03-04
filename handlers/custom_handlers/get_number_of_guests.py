@@ -22,6 +22,8 @@ def get_adults(message: Message) -> None:
             data['rooms'] = list()
             data['rooms'].append(guests)
             logger.info('Сохранил в словарь')
+            data['query_text'] += f'Количество взрослых: {message.text}\n'
+            logger.info('Сохранил количество взрослых для записи в б/д')
         logger.info('Запрос у пользователя детей')
         bot.send_message(message.from_user.id, 'С вами едут дети?', reply_markup=yes_no_children_button())
     else:
@@ -40,6 +42,8 @@ def get_children_number(message: Message) -> None:
     if message.text.isdigit():
         with bot.retrieve_data(message.from_user.id, message.chat.id) as data:
             data['children_number'] = int(message.text)
+            data['query_text'] += f'Количество детей: {message.text}\n'
+            logger.info('Сохранил количество детей для записи в б/д')
         logger.info('Сохранил число')
         bot.set_state(message.from_user.id, FindHotel.children_age)
         bot.send_message(message.from_user.id,
@@ -82,5 +86,7 @@ def get_children_age(message: Message) -> None:
                     )
                 )
             logger.info('Сохранил данные')
+            data['query_text'] += f'Возраст детей: {message.text}\n'
+            logger.info('Сохранил возраст детей для записи в б/д')
     bot.send_message(message.from_user.id, 'Нужны ли фотографии отеля?', reply_markup=yes_no_photo_button())
     bot.set_state(message.from_user.id, FindHotel.need_photos)

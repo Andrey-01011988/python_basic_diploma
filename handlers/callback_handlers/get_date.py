@@ -35,6 +35,8 @@ def check_in_date(call: CallbackQuery) -> None:
             data['check_in'] = check_in
 
         bot.send_message(call.from_user.id, f'Дата заезда: {str(result)}')
+        data['query_text'] += f'Дата заезда: {result}\n'
+        logger.info('Сохранил дату заезда для записи в б/д')
         bot.set_state(call.message.chat.id, FindHotel.check_out_date)
         calendar, step = create_calendar(call)
         bot.answer_callback_query(call.id)
@@ -68,6 +70,8 @@ def check_out_date(call: CallbackQuery) -> None:
             data['check_out'] = check_out
 
         bot.send_message(call.from_user.id, f'Дата выезда: {str(result)}')
+        data['query_text'] += f'Дата выезда: {result}\n'
+        logger.info('Сохранил дату выезда для записи в б/д')
         bot.answer_callback_query(call.id)
         bot.delete_message(call.message.chat.id, call.message.message_id)
         bot.send_message(call.from_user.id, 'Сколько взрослых поедет? Введите число')

@@ -41,3 +41,16 @@ def yes_no_photo_button() -> InlineKeyboardMarkup:
     markup.add(InlineKeyboardButton('Да', callback_data='p_yes'),
                InlineKeyboardButton('Нет', callback_data='p_no'))
     return markup
+
+
+def results_button(query_id) -> InlineKeyboardMarkup:
+    """
+    Инлайн кнопки для результатов запросов
+
+    :param query_id: id запроса
+    :return: InlineKeyboardMarkup
+    """
+    markup = InlineKeyboardMarkup()
+    markup.row_width = 1
+    markup.add(InlineKeyboardButton('Результаты запроса', callback_data=query_id))
+    return markup

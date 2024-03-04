@@ -17,6 +17,8 @@ def min_price(message: Message) -> None:
         with bot.retrieve_data(message.from_user.id) as data:
             data['price'] = {}
             data['price']['min'] = int(message.text)
+            data['query_text'] += f'Минимальная цена: {message.text}\n'
+            logger.info('Сохранил Минимальная цена для записи в б/д')
         bot.send_message(message.from_user.id, 'Введите максимальную цену за ночь для поиска отелей')
         logger.info(f'Пользователь {message.from_user.id} вводит максимальную цену')
         bot.set_state(message.from_user.id, FindHotel.price_max)
@@ -35,6 +37,8 @@ def max_price(message: Message) -> None:
     if message.text.isdigit():
         with bot.retrieve_data(message.from_user.id) as data:
             data['price']['max'] = int(message.text)
+            data['query_text'] += f'Максимальная цена: {message.text}\n'
+            logger.info('Сохранил Максимальная цена для записи в б/д')
         bot.send_message(message.from_user.id, 'Введите минимальное расстояние от центра (в милях)')
         logger.info(f'Пользователь {message.from_user.id} вводит минимальную дистанцию')
         bot.set_state(message.from_user.id, FindHotel.distance_min)

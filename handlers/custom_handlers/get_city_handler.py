@@ -11,6 +11,7 @@ from site_API.site_core import headers_get, url
 from site_API.site_handlers.site_api_handlers import get_city
 from states.find_hotels import FindHotel
 from loader import bot
+from utils.check_user import check_user
 
 
 def check_command(command: str) -> str:
@@ -57,15 +58,23 @@ def low_high_best_handler(message: Message) -> None:
     : param message : Message
     : return : None
     """
-    bot.set_state(message.from_user.id, FindHotel.command)
-    with bot.retrieve_data(message.from_user.id, message.chat.id) as data:
-        logger.info('Запоминаем выбранную команду: ' + message.text + f" User_id: {message.chat.id}")
-        data['command'] = message.text
-        data['sort'] = check_command(message.text)
-        data['date_time'] = datetime.now().strftime('%d.%m.%Y %H:%M:%S')
-        data['chat_id'] = message.chat.id
-    bot.set_state(message.from_user.id, FindHotel.select_city, message.chat.id)
-    bot.send_message(message.from_user.id, 'Введите город, в котором хотите найти отели')
+    if check_user(message):
+        bot.set_state(message.from_user.id, FindHotel.command)
+        with bot.retrieve_data(message.from_user.id, message.chat.id) as data:
+            logger.info('Запоминаем выбранную команду: ' + message.text + f" User_id: {message.chat.id}")
+            data['command'] = message.text
+            data['sort'] = check_command(message.text)
+            data['date_time'] = datetime.now().strftime('%d.%m.%Y %H:%M:%S')
+            data['chat_id'] = message.chat.id
+            logger.info('Создание строки для записи в б/д')
+            data['query_text'] = ''
+            logger.info('Сохранение выбранной команды для записи в б/д')
+            text = message.text.split('/')
+            data['query_text'] += 'Выбранная команда: ' + text[1] + '\n'
+        bot.set_state(message.from_user.id, FindHotel.select_city, message.chat.id)
+        bot.send_message(message.from_user.id, 'Введите город, в котором хотите найти отели')
+    else:
+        bot.reply_to(message, "Вы не зарегистрированы. Напишите /start")
 
 
 @bot.message_handler(state=FindHotel.select_city)
@@ -92,3 +101,5 @@ def select_city(message: Message) -> None:
                 data['cities'] = cities
             bot.send_message(message.from_user.id, 'Уточните расположение',
                              reply_markup=cities_buttons(cities))
+    else:
+        bot.send_message(message.from_user.id, 'Что-то пошло не так.')

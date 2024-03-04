@@ -21,6 +21,8 @@ def save_n_continue(call: CallbackQuery) -> None:
         for value in data['cities']:
             if value['id'] == data['destination_id']:
                 bot.send_message(call.from_user.id, f'Вы выбрали {value["region_name"]}')
+                data['query_text'] += f'Место отдыха: {value["region_name"]}\n'
+                logger.info('Добавление информации о городе для записи в б/д')
     else:
         logger.info('Что-то пошло не так')
 
