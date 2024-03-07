@@ -49,7 +49,7 @@ def get_children_number(message: Message) -> None:
         bot.send_message(message.from_user.id,
                          'Введите возраст детей целыми числами через запятую (если необходимо)')
     else:
-        bot.send_message('Введите целое число')
+        bot.send_message(message.from_user.id, 'Введите целое число')
 
 
 @bot.message_handler(state=FindHotel.children_age)
@@ -67,16 +67,17 @@ def get_children_age(message: Message) -> None:
         if not num.isdigit():
             bot.send_message(message.from_user.id,
                              'Введите возраст детей целыми числами через запятую с пробелом (если необходимо)')
-            logger.error(f'Сработала проверка {num}')
-            break
-    logger.info('Проверка пройдена')
+            logger.error(f'Сработала проверка, введенный возраст: {num}')
+            return
+        else:
+            logger.info('Проверка пройдена')
     with bot.retrieve_data(message.from_user.id, message.chat.id) as data:
         if len(age) != data['children_number']:
             bot.send_message(message.from_user.id,
                              'Количество детей и введенный возраст не соответствуют друг другу, попробуйте ещё раз')
+            bot.send_message(message.from_user.id, 'Сколько детей с вами едет? Введите количество')
             bot.set_state(message.from_user.id, FindHotel.children_number)
             logger.error('Количество и возраст не совпали')
-            return
         else:
             data['rooms'][0]['children'] = list()
             for number in age:
@@ -88,5 +89,5 @@ def get_children_age(message: Message) -> None:
             logger.info('Сохранил данные')
             data['query_text'] += f'Возраст детей: {message.text}\n'
             logger.info('Сохранил возраст детей для записи в б/д')
-    bot.send_message(message.from_user.id, 'Нужны ли фотографии отеля?', reply_markup=yes_no_photo_button())
-    bot.set_state(message.from_user.id, FindHotel.need_photos)
+            bot.send_message(message.from_user.id, 'Нужны ли фотографии отеля?', reply_markup=yes_no_photo_button())
+            bot.set_state(message.from_user.id, FindHotel.need_photos)

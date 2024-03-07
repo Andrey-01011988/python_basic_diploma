@@ -140,4 +140,4 @@ cython_debug/
 
 users_history.db
 
-/tests_db.py
+tests_db.py

@@ -38,7 +38,7 @@ def get_photo(call: CallbackQuery) -> None:
         elif data['command'] in ('/lowprice', '/highprice'):
             logger.info(f'Пользователь {call.from_user.id} вводит количество отелей')
             bot.send_message(call.from_user.id, 'Сколько отелей показать? Введите число')
-            bot.set_state(call.from_user.id, FindHotel.show_hotels)
+            bot.set_state(call.from_user.id, FindHotel.show_hotels_high_low)
         else:
             logger.error('Команды пользователя нет в списке')
             bot.send_message(call.from_user.id, 'Команда пользователя не определена')

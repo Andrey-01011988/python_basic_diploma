@@ -18,11 +18,11 @@ def show_queries(message: Message) -> None:
     :param message:
     :return:
     """
-    cur_user_id = Users.get_or_none(Users.user_id == message.from_user.id)
-    if cur_user_id:
-        logger.info(f'Пользователь {cur_user_id} сделал запрос истории')
-        cur_user_queries_id = cur_user_id.queries.order_by(Queries.query_date).limit(10)
-        for query in cur_user_queries_id:
+    cur_user = Users.get_or_none(Users.user_id == message.from_user.id)
+    if cur_user:
+        logger.info(f'Пользователь {cur_user} сделал запрос истории')
+        cur_user_queries = cur_user.queries.order_by(-Queries.query_date).limit(5)
+        for query in cur_user_queries:
             query_id = query.query_id
             text = query.query_text
             if text:

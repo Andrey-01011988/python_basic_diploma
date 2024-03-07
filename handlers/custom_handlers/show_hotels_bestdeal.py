@@ -13,19 +13,21 @@ from states.find_hotels import FindHotel
 from utils.get_hotel_info import get_hotel_info
 from utils.get_hotels_info import get_hotels_info
 
+
 db_write = crud.create()  # Создание и запись в таблицу данных
 
 
-@bot.message_handler(state=FindHotel.show_hotels_high_low)
-def hotels_high_low(message: Message) -> None:
+@bot.message_handler(state=FindHotel.show_hotels_bestdeal)
+def hotels_info_bestdeal(message: Message) -> None:
     """
     Запоминает введенное пользователем количество отелей,
     по собранной от пользователя информации направляет запрос серверу
-    и выдает пользователю сформированный ответ, для команд /highprice, /lowprice
+    и выдает пользователю сформированный ответ, для команд /bestdeal
 
     :param message: количество отелей
     :return: None
     """
+
     hotels_count = 0  # счетчик отелей выводимых пользователю
     cur_query_id = 0  # Проверка на извлечение id запроса
     images_to_user = []  # список ссылок на фото отеля для пользователя
@@ -36,10 +38,11 @@ def hotels_high_low(message: Message) -> None:
         with bot.retrieve_data(message.from_user.id, message.chat.id) as data:
             data['hotels_number'] = int(message.text)
             logger.info('Сохранил количество отелей')
-            data['query_text'] += f'Количество отелей: {message.text}\n'
-            logger.info('Сохранил количество отелей для записи в б/д')
+            data['hotels_bestdeal'] = []  # список информации об отелях после сортировки
             data['show_info'] = []  # список информации об отелях для записи в б/д и показа пользователю
             data['photos_db'] = ''  # строка для записи ссылок на фотографии в б/д
+            data['query_text'] += f'Количество отелей: {message.text}\n'
+            logger.info('Сохранил количество отелей для записи в б/д')
 
         bot.send_message(message.from_user.id, 'Жду ответа от сервера')
     else:
@@ -51,21 +54,43 @@ def hotels_high_low(message: Message) -> None:
     local_payload['checkInDate'] = data['check_in']
     local_payload['checkOutDate'] = data['check_out']
     local_payload['rooms'] = data['rooms']
-    local_payload['resultsSize'] = data['hotels_number']
+    local_payload['resultsSize'] = 50
     local_payload['sort'] = data['sort']
-    local_payload['filters'].clear()
+    local_payload['filters']['price'] = data['price']
 
-    logger.info('Сформировано тело запроса lowprice highprice')
+    logger.info('Сформировано тело запроса bestdeal')
 
     hotels_info = get_hotels_info(local_payload, message)
 
     if len(hotels_info) > 0:
-
+        data['query_text'] += f'Минимальная дистанция до центра: {data["distance"]["min"]}\n'
+        data['query_text'] += f'Максимальная дистанция до центра: {data["distance"]["max"]}\n'
         data['query_text'] += f'Запрос составлен: {datetime.now().replace(microsecond=0)}\n'
+
+        logger.info('Сортировка по расстоянию от центра введенного пользователем')
+        for hotel in hotels_info:
+            if data['distance']['min'] <= hotel['distance_from_center'] <= data['distance']['max']:
+                data['hotels_bestdeal'].append(hotel)
+
+        logger.info('Проверка на длину списка')
+        if len(data['hotels_bestdeal']) < data['hotels_number']:
+            logger.error('Проверка не пройдена, пользователь возвращен на шаг ввода дистанции')
+            data['hotels_bestdeal'].clear()
+            logger.info('Очищен список')
+            bot.send_message(message.from_user.id,
+                             'По таким параметрам нет подходящих отелей, попробуйте изменить дистанцию')
+            bot.send_message(message.from_user.id, 'Введите минимальную дистанцию от центра (в милях)')
+            bot.set_state(message.from_user.id, FindHotel.distance_min)
+            return
+        else:
+            logger.info('Проверка на список пройдена')
+
+            logger.info('Сортировка по порядку возрастания дистанции')
+            data['hotels_bestdeal'] = sorted(data['hotels_bestdeal'], key=lambda x: x['distance_from_center'])
 
         while hotels_count < data['hotels_number']:
 
-            hotel_id = hotels_info[hotels_count]['hotel_id']
+            hotel_id = data['hotels_bestdeal'][hotels_count]['hotel_id']
             hotel_query = default_hotel_info
             hotel_query['propertyId'] = hotel_id
 
@@ -80,8 +105,8 @@ def hotels_high_low(message: Message) -> None:
                     dict(
                         name=hotel_info['hotel_name'],
                         address=hotel_info['address'],
-                        price_sort=hotels_info[hotels_count]['price_int'],
-                        distance=hotels_info[hotels_count]['distance_from_center'],
+                        price_sort=data['hotels_bestdeal'][hotels_count]['price_int'],
+                        distance=data['hotels_bestdeal'][hotels_count]['distance_from_center'],
                         photos=hotel_info['photos']
                     )
                 )
@@ -90,14 +115,6 @@ def hotels_high_low(message: Message) -> None:
                 bot.send_message(message.from_user.id, 'Произошла ошибка, выберите в меню другую функцию (/help)')
                 logger.error('Ошибка: пустой ответ')
                 return
-
-        if data['command'] == '/highprice':
-            logger.info('Сортировка по команде /highprice')
-            data['show_info'] = sorted(data['show_info'], key=lambda x: x['price_sort'], reverse=True)
-
-        elif data['command'] == '/lowprice':
-            logger.info('Сортировка по команде /lowprice')
-            data['show_info'] = sorted(data['show_info'], key=lambda x: x['price_sort'])
 
         req_info = [
             {
@@ -153,7 +170,6 @@ def hotels_high_low(message: Message) -> None:
                         media.append(InputMediaPhoto(media=link, caption=msg))
                     else:
                         media.append(InputMediaPhoto(media=link))
-
                     data['photos_db'] += link + ';'
 
                 try:
@@ -170,7 +186,6 @@ def hotels_high_low(message: Message) -> None:
                     logger.error(f'Ошибка {e}')
 
                 data['photos_db'] = ''
-                logger.info('Очищена строка ссылок на фотографии')
 
                 bot.send_media_group(message.chat.id, media)
                 logger.info('Сообщение отправлено')

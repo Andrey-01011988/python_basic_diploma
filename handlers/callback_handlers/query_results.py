@@ -23,7 +23,7 @@ def show_results(call: CallbackQuery) -> None:
         query_results = cur_query.result
         query_text: str = cur_query.query_text
 
-        bot.send_message(call.from_user.id, query_text)
+        bot.send_message(call.from_user.id, f'<b>{query_text}</b>')
 
         switcher_yes = 'Фото отеля: Да'
         switcher_no = 'Фото отеля: Нет'
@@ -51,6 +51,8 @@ def show_results(call: CallbackQuery) -> None:
         else:
             bot.send_message(call.from_user.id, 'Что-то пошло не так')
             logger.error('Не корректно записались условия вывода фотографий')
+
+        bot.send_message(call.from_user.id, 'Если хотите продолжить, введите /help для выбора необходимой опции')
 
     else:
         bot.send_message(call.from_user.id, 'Запросов нет')

@@ -26,7 +26,7 @@ def get_photo_num(message: Message) -> None:
         elif data['command'] in ('/lowprice', '/highprice'):
             bot.send_message(message.from_user.id, 'Сколько отелей показать? Введите число')
             logger.info(f'Пользователь {message.from_user.id} вводит количество отелей')
-            bot.set_state(message.from_user.id, FindHotel.show_hotels)
+            bot.set_state(message.from_user.id, FindHotel.show_hotels_high_low)
         else:
             logger.error('Команды пользователя нет в списке')
             bot.send_message(message.from_user.id, 'Команда пользователя не определена')

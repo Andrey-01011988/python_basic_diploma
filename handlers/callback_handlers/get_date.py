@@ -1,3 +1,5 @@
+from datetime import date
+
 from loguru import logger
 from telebot.types import CallbackQuery
 
@@ -37,6 +39,7 @@ def check_in_date(call: CallbackQuery) -> None:
         bot.send_message(call.from_user.id, f'Дата заезда: {str(result)}')
         data['query_text'] += f'Дата заезда: {result}\n'
         logger.info('Сохранил дату заезда для записи в б/д')
+
         bot.set_state(call.message.chat.id, FindHotel.check_out_date)
         calendar, step = create_calendar(call)
         bot.answer_callback_query(call.id)
@@ -70,9 +73,26 @@ def check_out_date(call: CallbackQuery) -> None:
             data['check_out'] = check_out
 
         bot.send_message(call.from_user.id, f'Дата выезда: {str(result)}')
-        data['query_text'] += f'Дата выезда: {result}\n'
-        logger.info('Сохранил дату выезда для записи в б/д')
-        bot.answer_callback_query(call.id)
-        bot.delete_message(call.message.chat.id, call.message.message_id)
-        bot.send_message(call.from_user.id, 'Сколько взрослых поедет? Введите число')
-        bot.set_state(call.from_user.id, FindHotel.adult_guests)
+
+        arrival_date = date(data['check_in']['year'], data['check_in']['month'], data['check_in']['day'])
+        departure_date = date(data['check_out']['year'], data['check_out']['month'], data['check_out']['day'])
+
+        if arrival_date >= departure_date:
+
+            logger.error('Проверка на дату не пройдена')
+            bot.send_message(call.from_user.id, 'Даты заезда и выезда указаны не правильно, попробуйте еще раз')
+
+            calendar, step = create_calendar(call)
+            bot.send_message(call.from_user.id, f"Укажите {step} заезда", reply_markup=calendar)
+            bot.set_state(call.from_user.id, FindHotel.check_in_date)
+            bot.answer_callback_query(call.id)
+            bot.delete_message(call.message.chat.id, call.message.message_id)
+            logger.info('Пользователь отправлен на повторный ввод дат')
+        else:
+            logger.info('Проверка на дату пройдена')
+            data['query_text'] += f'Дата выезда: {result}\n'
+            logger.info('Сохранил дату выезда для записи в б/д')
+            bot.answer_callback_query(call.id)
+            bot.delete_message(call.message.chat.id, call.message.message_id)
+            bot.send_message(call.from_user.id, 'Сколько взрослых поедет? Введите число')
+            bot.set_state(call.from_user.id, FindHotel.adult_guests)
