@@ -11,7 +11,6 @@ class FindHotel(StatesGroup):
     children_age = State()  # вводит возраст детей (если необходимо)
     need_photos = State()  # определяет нуж ны ли фото
     photo_number = State()  # вводит количество фотографий отеля
-    hotels_number = State()  # Получает количество отелей от пользователя
     show_hotels_high_low = State()  # по информации пользователя выводит результаты запросов lowprice/highprice
     show_hotels_bestdeal = State()  # по информации пользователя выводит результаты запросов bestdeal
     price_min = State()  # минимальная цена для поиска
