@@ -34,4 +34,3 @@ peewee==3.16.2<br>
 python-dateutil==2.8.2<br>
 loguru==0.7.2<br>
 python-telegram-bot-calendar==1.0.5<br>
-peewee==3.16.2<br>
